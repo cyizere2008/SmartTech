@@ -1,0 +1,209 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads and static files
+uploads/
+temp/
+tmp/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.mp4
+*.mp3
+*.pdf
+*.doc
+*.docx
+
+# Logs
+logs/
+*.log
+log.txt
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# parcel-bundler cache
+.cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+*.orig
+
+# PM2
+.pm2/
+
+# Debug
+debug.log
+
+# TypeScript
+*.tsbuildinfo
+
+# Build files
+dist/
+build/
+lib/
+
+# Testing
+.nyc_output/
+
+# Certificates
+*.pem
+*.key
+*.crt
+*.cert
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# MongoDB data (if stored locally)
+/data/
+/db/
+
+# Redis data
+dump.rdb
+
+# Session data
+sessions/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Environment-specific
+.env.staging
+.env.production.local
+.env.development.local
+.env.test.local
+.env.staging.local
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Custom
+# Ignore any local configuration files
+config/local.js
+config/development.js
+config/production.js
+
+# Ignore uploaded files
+public/uploads/
+uploads/*
+
+# Ignore error logs
+error.log
+access.log
+
+# Ignore nodemon restart files
+nodemon-debug.json
