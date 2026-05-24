@@ -4,6 +4,31 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 
+// Helper function to get or create employee
+const getOrCreateEmployee = async (userData) => {
+  try {
+    let employee = await Employee.findOne({ email: userData.email });
+    
+    if (!employee) {
+      employee = new Employee({
+        fullname: userData.fullname,
+        email: userData.email,
+        position: 'Employee',
+        salary: 0,
+        isActive: true,
+        joiningDate: new Date()
+      });
+      await employee.save();
+      console.log(`✅ Created employee for: ${userData.email}`);
+    }
+    
+    return employee;
+  } catch (err) {
+    console.error('Error in getOrCreateEmployee:', err);
+    throw err;
+  }
+};
+
 // Login
 router.post('/login', async (req, res) => {
   try {
@@ -13,38 +38,51 @@ router.post('/login', async (req, res) => {
     // Find user
     let user = await User.findOne({ email });
     
-    // If no user exists, create a test user
+    // If user doesn't exist, try to find employee and create user
     if (!user) {
-      console.log('Creating test user...');
+      console.log('User not found, checking employee...');
+      const existingEmployee = await Employee.findOne({ email });
       
-      // Create employee first
-      const employee = new Employee({
-        fullname: 'Test Employee',
-        email: email,
-        position: 'Software Developer',
-        salary: 50000,
-        isActive: true
-      });
-      await employee.save();
-      
-      // Create user
-      user = new User({
-        fullname: 'Test Employee',
-        email: email,
-        password: password || 'password123',
-        role: 'employee',
-        employeeId: employee._id
-      });
-      await user.save();
-      console.log('Test user created successfully');
+      if (existingEmployee) {
+        // Create user for existing employee
+        user = new User({
+          fullname: existingEmployee.fullname,
+          email: email,
+          password: password || 'password123',
+          role: 'employee',
+          employeeId: existingEmployee._id
+        });
+        await user.save();
+        console.log('✅ Created user for existing employee');
+      } else {
+        // Create both employee and user
+        const employee = new Employee({
+          fullname: email.split('@')[0],
+          email: email,
+          position: 'Employee',
+          salary: 0,
+          isActive: true,
+          joiningDate: new Date()
+        });
+        await employee.save();
+        console.log('✅ Created new employee');
+        
+        user = new User({
+          fullname: employee.fullname,
+          email: email,
+          password: password || 'password123',
+          role: 'employee',
+          employeeId: employee._id
+        });
+        await user.save();
+        console.log('✅ Created new user');
+      }
     }
     
-    // Check password (for existing users)
-    if (user.password && password) {
-      const isMatch = await user.comparePassword(password);
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Invalid credentials' });
-      }
+    // Check password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
     
     // Create token
@@ -74,30 +112,41 @@ router.post('/register', async (req, res) => {
   try {
     const { fullname, email, password, role } = req.body;
     
+    // Check if user already exists
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ message: 'User already exists' });
     }
     
-    // Create employee
-    const employee = new Employee({
-      fullname: fullname,
-      email: email,
-      position: 'New Employee',
-      salary: 0,
-      isActive: true
-    });
-    await employee.save();
+    // Check if employee already exists
+    let employee = await Employee.findOne({ email });
+    
+    if (!employee) {
+      // Create employee
+      employee = new Employee({
+        fullname: fullname,
+        email: email,
+        position: 'Employee',
+        salary: 0,
+        isActive: true,
+        joiningDate: new Date()
+      });
+      await employee.save();
+      console.log('✅ Employee created');
+    } else {
+      console.log('✅ Using existing employee');
+    }
     
     // Create user
     user = new User({
-      fullname,
-      email,
-      password,
+      fullname: fullname,
+      email: email,
+      password: password,
       role: role || 'employee',
       employeeId: employee._id
     });
     await user.save();
+    console.log('✅ User created');
     
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role },

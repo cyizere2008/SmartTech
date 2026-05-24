@@ -5,7 +5,7 @@ import {
   FaTachometerAlt, FaUsers, FaBuilding, FaCalendarCheck, 
   FaLeaf, FaMoneyBillWave, FaChartLine, FaFileAlt, 
   FaSignOutAlt, FaUserCircle, FaBars, FaTimes,
-  FaChevronLeft
+  FaUserCheck, FaUserClock
 } from 'react-icons/fa';
 
 const Layout = ({ children }) => {
@@ -36,7 +36,9 @@ const Layout = ({ children }) => {
     { path: '/dashboard', name: 'Dashboard', icon: FaTachometerAlt, roles: ['admin', 'hr_manager', 'employee'] },
     { path: '/employees', name: 'Employees', icon: FaUsers, roles: ['admin', 'hr_manager'] },
     { path: '/departments', name: 'Departments', icon: FaBuilding, roles: ['admin', 'hr_manager'] },
-    { path: '/attendance', name: 'Attendance', icon: FaCalendarCheck, roles: ['admin', 'hr_manager', 'employee'] },
+    // Attendance menu items - different for employee and HR
+    { path: '/employee-attendance', name: 'My Attendance', icon: FaUserClock, roles: ['employee'] },
+    { path: '/hr-attendance', name: 'Attendance Overview', icon: FaUsers, roles: ['admin', 'hr_manager'] },
     { path: '/leaves', name: 'Leaves', icon: FaLeaf, roles: ['admin', 'hr_manager', 'employee'] },
     { path: '/payroll', name: 'Payroll', icon: FaMoneyBillWave, roles: ['admin', 'hr_manager', 'employee'] },
     { path: '/performance', name: 'Performance', icon: FaChartLine, roles: ['admin', 'hr_manager', 'employee'] },

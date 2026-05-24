@@ -54,7 +54,7 @@ export const AuthProvider = ({ children, navigate }) => {
       axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
       setUser(res.data.user);
       toast.success('Registration successful!');
-      if (navigate) navigate('/dashboard');
+      if (navigate) navigate('/login');
       return true;
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed');

@@ -7,9 +7,10 @@ import 'react-toastify/dist/ReactToastify.css';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-import Employees from './pages/Employees.jsx';
 import Departments from './pages/Departments.jsx';
-import Attendance from './pages/Attendance.jsx';
+import Employees from './pages/Employees.jsx';
+import EmployeeAttendance from './pages/EmployeeAttendance.jsx';
+import HRAttendance from './pages/HRAttendance';
 import Leaves from './pages/Leaves.jsx';
 import Payroll from './pages/Payroll.jsx';
 import Performance from './pages/Performance.jsx';
@@ -42,9 +43,10 @@ const AppRoutes = () => {
     React.createElement(Route, { path: "/login", element: React.createElement(Login, null) }),
     React.createElement(Route, { path: "/register", element: React.createElement(Register, null) }),
     React.createElement(Route, { path: "/dashboard", element: React.createElement(PrivateRoute, null, React.createElement(Dashboard, null)) }),
-    React.createElement(Route, { path: "/employees", element: React.createElement(PrivateRoute, { allowedRoles: ['admin', 'hr_manager'] }, React.createElement(Employees, null)) }),
+     React.createElement(Route, { path: "/employees", element: React.createElement(PrivateRoute, { allowedRoles: ['admin', 'hr_manager'] }, React.createElement(Employees, null)) }),
     React.createElement(Route, { path: "/departments", element: React.createElement(PrivateRoute, { allowedRoles: ['admin', 'hr_manager'] }, React.createElement(Departments, null)) }),
-    React.createElement(Route, { path: "/attendance", element: React.createElement(PrivateRoute, null, React.createElement(Attendance, null)) }),
+    React.createElement(Route, { path: "/employee-attendance", element: React.createElement(PrivateRoute, { allowedRoles: ['employee'] }, React.createElement(EmployeeAttendance, null)) }),
+    React.createElement(Route, { path: "/hr-attendance", element: React.createElement(PrivateRoute, { allowedRoles: ['admin', 'hr_manager'] }, React.createElement(HRAttendance, null)) }),
     React.createElement(Route, { path: "/leaves", element: React.createElement(PrivateRoute, null, React.createElement(Leaves, null)) }),
     React.createElement(Route, { path: "/payroll", element: React.createElement(PrivateRoute, null, React.createElement(Payroll, null)) }),
     React.createElement(Route, { path: "/performance", element: React.createElement(PrivateRoute, null, React.createElement(Performance, null)) }),

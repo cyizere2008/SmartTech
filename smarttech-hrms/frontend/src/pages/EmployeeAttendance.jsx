@@ -4,12 +4,12 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { 
   FaCheckCircle, FaClock, FaUserCheck, FaUserClock, 
-  FaCalendarAlt, FaChartLine, FaArrowRight, FaHistory,
-  FaCloudUploadAlt, FaSpinner, FaAward, FaTrophy, FaFire
+  FaCalendarAlt, FaChartLine, FaHistory, FaSpinner, 
+  FaAward, FaTrophy, FaFire
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext.jsx';
 
-const Attendance = () => {
+const EmployeeAttendance = () => {
   const { user } = useAuth();
   const [todayAttendance, setTodayAttendance] = useState(null);
   const [attendanceHistory, setAttendanceHistory] = useState([]);
@@ -50,10 +50,7 @@ const Attendance = () => {
 
   const fetchHistory = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/attendance/history', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await axios.get('http://localhost:5000/api/attendance/employee/history', getAuthConfig());
       setAttendanceHistory(res.data);
     } catch (err) {
       console.error('Error fetching history:', err);
@@ -63,7 +60,7 @@ const Attendance = () => {
 
   const fetchStats = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/attendance/stats', getAuthConfig());
+      const res = await axios.get('http://localhost:5000/api/attendance/employee/stats', getAuthConfig());
       setStats(res.data);
     } catch (err) {
       console.error('Error fetching stats:', err);
@@ -116,6 +113,7 @@ const Attendance = () => {
   };
 
   const formatDate = (date) => {
+    if (!date) return '-';
     return new Date(date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
@@ -129,7 +127,6 @@ const Attendance = () => {
     return badges[status] || 'bg-gray-100 text-gray-800';
   };
 
-  // Get attendance rate color
   const getRateColor = (rate) => {
     if (rate >= 90) return 'text-emerald-600';
     if (rate >= 75) return 'text-blue-600';
@@ -137,7 +134,6 @@ const Attendance = () => {
     return 'text-rose-600';
   };
 
-  // Get motivational message based on attendance rate
   const getMotivationMessage = () => {
     const rate = stats.attendanceRate;
     if (rate >= 90) return 'Excellent! Keep up the great work! 🎉';
@@ -157,8 +153,8 @@ const Attendance = () => {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                Attendance Management
+              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                My Attendance
               </h1>
               <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
                 <FaHistory className="text-gray-400" size={12} />
@@ -176,7 +172,7 @@ const Attendance = () => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 relative">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-emerald-600 text-sm font-medium mb-1">Present Days</p>
@@ -212,7 +208,7 @@ const Attendance = () => {
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 relative">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-600 text-sm font-medium mb-1">Attendance Rate</p>
@@ -232,7 +228,7 @@ const Attendance = () => {
           </div>
         </div>
 
-        {/* Today's Status Card - Enhanced */}
+        {/* Today's Status Card */}
         <div className="bg-white rounded-2xl shadow-lg mb-8 overflow-hidden">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
@@ -253,13 +249,13 @@ const Attendance = () => {
                   <div className="flex items-center gap-3 justify-center">
                     <span className="text-gray-600 font-medium">Check In:</span>
                     <span className="text-xl md:text-2xl font-bold text-emerald-600">
-                      {todayAttendance?.checkIn ? formatTime(todayAttendance.checkIn) : '--:--'}
+                      {todayAttendance?.checkIn ? formatTime(todayAttendance.checkIn) : 'Not checked in'}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 justify-center">
                     <span className="text-gray-600 font-medium">Check Out:</span>
                     <span className="text-xl md:text-2xl font-bold text-blue-600">
-                      {todayAttendance?.checkOut ? formatTime(todayAttendance.checkOut) : '--:--'}
+                      {todayAttendance?.checkOut ? formatTime(todayAttendance.checkOut) : 'Not checked out'}
                     </span>
                   </div>
                   {todayAttendance?.lateMinutes > 0 && (
@@ -278,11 +274,7 @@ const Attendance = () => {
                   disabled={loading || todayAttendance?.checkIn}
                   className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-8 py-3 rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold shadow-md hover:shadow-lg"
                 >
-                  {loading ? (
-                    <FaSpinner className="animate-spin" />
-                  ) : (
-                    <FaCheckCircle />
-                  )}
+                  {loading ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
                   Check In
                 </button>
                 <button
@@ -298,17 +290,19 @@ const Attendance = () => {
           </div>
         </div>
 
-        {/* History Table - Responsive */}
+        {/* History Table */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="px-4 md:px-6 py-4 border-b bg-gray-50">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h2 className="text-lg md:text-xl font-semibold text-gray-800 flex items-center gap-2">
                   <FaHistory className="text-blue-500" />
-                  Recent Attendance History
+                  My Attendance History
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  Last 30 days records • Total: {attendanceHistory.length} entries
+                  {attendanceHistory.length === 0 
+                    ? 'No records found. Check in to start tracking!' 
+                    : `Last 30 days records • Total: ${attendanceHistory.length} entries`}
                 </p>
               </div>
               {attendanceHistory.length > 0 && (
@@ -329,69 +323,65 @@ const Attendance = () => {
               <p className="text-gray-500 mb-6 max-w-md mx-auto">
                 Start tracking your attendance by checking in. Your history will appear here.
               </p>
+              <button
+                onClick={handleCheckIn}
+                disabled={loading || todayAttendance?.checkIn}
+                className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-6 py-2 rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold shadow-md hover:shadow-lg mx-auto"
+              >
+                {loading ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
+                Check In Now
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <div className="inline-block min-w-full align-middle">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Day</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check In</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Check Out</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Hours</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Day</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check In</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Check Out</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {attendanceHistory.map((record) => (
+                    <tr key={record._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="font-medium text-gray-900">{formatDate(record.date)}</div>
+                        <div className="text-xs text-gray-500 sm:hidden">
+                          {record.date ? new Date(record.date).toLocaleDateString('en-US', { weekday: 'short' }) : ''}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-600 hidden sm:table-cell">
+                        {record.date ? new Date(record.date).toLocaleDateString('en-US', { weekday: 'short' }) : ''}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {record.checkIn ? (
+                          <span className="text-emerald-600 font-medium">{formatTime(record.checkIn)}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
+                        {record.checkOut ? (
+                          <span className="text-blue-600 font-medium">{formatTime(record.checkOut)}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(record.status)}`}>
+                          {record.status || 'present'}
+                        </span>
+                        {record.lateMinutes > 0 && (
+                          <span className="ml-1 text-xs text-amber-600 hidden sm:inline">(+{record.lateMinutes})</span>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {attendanceHistory.map((record, index) => (
-                      <tr key={record._id} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="font-medium text-gray-900">{formatDate(record.date)}</div>
-                          <div className="text-xs text-gray-500 sm:hidden">
-                            {new Date(record.date).toLocaleDateString('en-US', { weekday: 'short' })}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-gray-600 hidden sm:table-cell">
-                          {new Date(record.date).toLocaleDateString('en-US', { weekday: 'short' })}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {record.checkIn ? (
-                            <span className="text-emerald-600 font-medium">{formatTime(record.checkIn)}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
-                          {record.checkOut ? (
-                            <span className="text-blue-600 font-medium">{formatTime(record.checkOut)}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap hidden lg:table-cell">
-                          {record.checkIn && record.checkOut ? (
-                            <span className="text-purple-600 font-medium">
-                              {((new Date(record.checkOut) - new Date(record.checkIn)) / (1000 * 60 * 60)).toFixed(1)}h
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(record.status)}`}>
-                            {record.status || 'present'}
-                          </span>
-                          {record.lateMinutes > 0 && (
-                            <span className="ml-1 text-xs text-amber-600 hidden sm:inline">(+{record.lateMinutes})</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -420,4 +410,4 @@ const Attendance = () => {
   );
 };
 
-export default Attendance;
+export default EmployeeAttendance;

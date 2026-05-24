@@ -3,50 +3,34 @@ const router = express.Router();
 const Attendance = require('../models/Attendance');
 const Employee = require('../models/Employee');
 const User = require('../models/User');
-const { authMiddleware } = require('../middleware/auth');
+const Department = require('../models/Department');
+const { authMiddleware, requireRole } = require('../middleware/auth');
 
 // Test route
 router.get('/test', (req, res) => {
   res.json({ message: 'Attendance routes are working!', timestamp: new Date() });
 });
 
-// Helper function to get or create employee for user (FIXED for duplicate key)
+// Helper function to get or create employee for user
 const getOrCreateEmployee = async (user) => {
   try {
-    // First try to find employee by email
     let employee = await Employee.findOne({ email: user.email });
     
     if (!employee) {
       console.log(`Creating new employee for: ${user.email}`);
-      try {
-        // Create employee if not exists
-        employee = new Employee({
-          fullname: user.fullname,
-          email: user.email,
-          position: 'Employee',
-          salary: 0,
-          isActive: true,
-          joiningDate: new Date()
-        });
-        await employee.save();
-        console.log(`✅ Created new employee for: ${user.email}`);
-        
-        // Update user with employeeId
-        user.employeeId = employee._id;
-        await user.save();
-      } catch (err) {
-        // If duplicate key error, try to find the employee again
-        if (err.code === 11000) {
-          console.log(`Duplicate key error, fetching existing employee for: ${user.email}`);
-          employee = await Employee.findOne({ email: user.email });
-          if (employee && !user.employeeId) {
-            user.employeeId = employee._id;
-            await user.save();
-          }
-        } else {
-          throw err;
-        }
-      }
+      employee = new Employee({
+        fullname: user.fullname,
+        email: user.email,
+        position: 'Employee',
+        salary: 0,
+        isActive: true,
+        joiningDate: new Date()
+      });
+      await employee.save();
+      console.log(`✅ Created new employee for: ${user.email}`);
+      
+      user.employeeId = employee._id;
+      await user.save();
     }
     
     return employee;
@@ -55,6 +39,8 @@ const getOrCreateEmployee = async (user) => {
     throw error;
   }
 };
+
+// ==================== CHECK IN/OUT ROUTES ====================
 
 // Check In
 router.post('/checkin', authMiddleware, async (req, res) => {
@@ -66,11 +52,9 @@ router.post('/checkin', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Get or create employee record
     const employee = await getOrCreateEmployee(user);
     console.log('✅ Employee found:', employee.fullname);
     
-    // Check if already checked in today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -87,7 +71,7 @@ router.post('/checkin', authMiddleware, async (req, res) => {
     
     const now = new Date();
     const checkInTime = now.getHours() * 60 + now.getMinutes();
-    const lateThreshold = 9 * 60 + 30; // 9:30 AM
+    const lateThreshold = 9 * 60 + 30;
     
     let status = 'present';
     let lateMinutes = 0;
@@ -115,7 +99,6 @@ router.post('/checkin', authMiddleware, async (req, res) => {
     
     await attendance.save();
     
-    console.log(`✅ Check-in successful for ${employee.fullname}`);
     res.json({
       success: true,
       message: 'Checked in successfully',
@@ -165,7 +148,6 @@ router.post('/checkout', authMiddleware, async (req, res) => {
     attendance.checkOut = new Date();
     await attendance.save();
     
-    console.log(`✅ Check-out successful for ${employee.fullname}`);
     res.json({
       success: true,
       message: 'Checked out successfully',
@@ -181,11 +163,11 @@ router.post('/checkout', authMiddleware, async (req, res) => {
   }
 });
 
+// ==================== EMPLOYEE VIEW ROUTES ====================
+
 // Get today's attendance
 router.get('/today', authMiddleware, async (req, res) => {
   try {
-    console.log('📝 Today attendance request');
-    
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -205,15 +187,166 @@ router.get('/today', authMiddleware, async (req, res) => {
     
     res.json(attendance);
   } catch (err) {
-    console.error('Error in today attendance:', err);
+    console.error('Error:', err);
     res.status(500).json({ message: 'Server error: ' + err.message });
   }
 });
 
-// Get attendance history
+// Get attendance history (for employee)
 router.get('/history', authMiddleware, async (req, res) => {
   try {
-    console.log('📝 Fetching attendance history...');
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const employee = await getOrCreateEmployee(user);
+    
+    const attendances = await Attendance.find({ employee: employee._id })
+      .sort({ date: -1 })
+      .limit(30);
+    
+    res.json(attendances);
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ message: 'Server error: ' + err.message });
+  }
+});
+
+// Get attendance stats (for employee)
+router.get('/stats', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const employee = await getOrCreateEmployee(user);
+    
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    
+    const attendances = await Attendance.find({
+      employee: employee._id,
+      date: { $gte: startOfMonth, $lte: endOfMonth }
+    });
+    
+    const totalPresent = attendances.filter(a => a.status === 'present').length;
+    const totalLate = attendances.filter(a => a.status === 'late').length;
+    const totalDays = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    const workingDays = totalDays - 8;
+    const totalAbsent = Math.max(0, workingDays - attendances.length);
+    const attendanceRate = workingDays > 0 ? ((attendances.length / workingDays) * 100).toFixed(1) : 0;
+    
+    res.json({
+      totalPresent,
+      totalLate,
+      totalAbsent,
+      attendanceRate: parseFloat(attendanceRate)
+    });
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ message: 'Server error: ' + err.message });
+  }
+});
+
+// ==================== HR/ADMIN ROUTES ====================
+
+// Get all attendance for HR (with filters)
+router.get('/hr/all', authMiddleware, requireRole(['admin', 'hr_manager']), async (req, res) => {
+  try {
+    console.log('📝 HR fetching all attendance records');
+    
+    const { employeeId, department, date, startDate, endDate } = req.query;
+    let query = {};
+    
+    if (employeeId && employeeId !== '') query.employee = employeeId;
+    if (date) {
+      const targetDate = new Date(date);
+      targetDate.setHours(0, 0, 0, 0);
+      const nextDate = new Date(targetDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      query.date = { $gte: targetDate, $lt: nextDate };
+    }
+    if (startDate) query.date = { $gte: new Date(startDate) };
+    if (endDate) query.date = { ...query.date, $lte: new Date(endDate) };
+    
+    let attendances = await Attendance.find(query)
+      .populate('employee', 'fullname email department position')
+      .sort({ date: -1 });
+    
+    if (department && department !== '') {
+      attendances = attendances.filter(a => 
+        a.employee?.department?._id?.toString() === department ||
+        a.employee?.department?.toString() === department
+      );
+    }
+    
+    console.log(`Found ${attendances.length} attendance records`);
+    res.json(attendances);
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ message: 'Server error: ' + err.message });
+  }
+});
+
+// Get HR summary statistics
+router.get('/hr/summary', authMiddleware, requireRole(['admin', 'hr_manager']), async (req, res) => {
+  try {
+    const { date, department } = req.query;
+    let query = {};
+    
+    if (date) {
+      const targetDate = new Date(date);
+      targetDate.setHours(0, 0, 0, 0);
+      const nextDate = new Date(targetDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      query.date = { $gte: targetDate, $lt: nextDate };
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      query.date = { $gte: today, $lt: tomorrow };
+    }
+    
+    let attendances = await Attendance.find(query)
+      .populate('employee', 'fullname department');
+    
+    if (department && department !== '') {
+      attendances = attendances.filter(a => 
+        a.employee?.department?._id?.toString() === department ||
+        a.employee?.department?.toString() === department
+      );
+    }
+    
+    const totalEmployees = await Employee.countDocuments({ isActive: true });
+    const totalPresent = attendances.filter(a => a.status === 'present').length;
+    const totalLate = attendances.filter(a => a.status === 'late').length;
+    const totalAbsent = totalEmployees - attendances.length;
+    const attendanceRate = totalEmployees > 0 ? ((totalPresent / totalEmployees) * 100).toFixed(1) : 0;
+    
+    res.json({
+      totalEmployees,
+      totalPresent,
+      totalLate,
+      totalAbsent: Math.max(0, totalAbsent),
+      attendanceRate: parseFloat(attendanceRate)
+    });
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ message: 'Server error: ' + err.message });
+  }
+});
+
+
+// ==================== ADD THESE NEW ROUTES ====================
+
+// Get employee attendance history (for employee view) - NEW ROUTE
+router.get('/employee/history', authMiddleware, async (req, res) => {
+  try {
+    console.log('📝 Fetching employee attendance history for user:', req.user.id);
     
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -223,24 +356,22 @@ router.get('/history', authMiddleware, async (req, res) => {
     const employee = await getOrCreateEmployee(user);
     console.log('✅ Employee found:', employee.fullname, 'ID:', employee._id);
     
-    const { limit = 30 } = req.query;
-    
     const attendances = await Attendance.find({ employee: employee._id })
       .sort({ date: -1 })
-      .limit(parseInt(limit));
+      .limit(30);
     
     console.log(`Found ${attendances.length} attendance records`);
     res.json(attendances);
   } catch (err) {
-    console.error('Error fetching history:', err);
+    console.error('Error fetching employee history:', err);
     res.status(500).json({ message: 'Server error: ' + err.message });
   }
 });
 
-// Get attendance statistics
-router.get('/stats', authMiddleware, async (req, res) => {
+// Get employee stats (for employee view) - NEW ROUTE
+router.get('/employee/stats', authMiddleware, async (req, res) => {
   try {
-    console.log('📝 Fetching attendance stats...');
+    console.log('📝 Fetching employee stats for user:', req.user.id);
     
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -260,13 +391,12 @@ router.get('/stats', authMiddleware, async (req, res) => {
     
     const totalPresent = attendances.filter(a => a.status === 'present').length;
     const totalLate = attendances.filter(a => a.status === 'late').length;
-    
     const totalDays = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-    const workingDays = totalDays - 8; // Approximate working days
+    const workingDays = totalDays - 8;
     const totalAbsent = Math.max(0, workingDays - attendances.length);
     const attendanceRate = workingDays > 0 ? ((attendances.length / workingDays) * 100).toFixed(1) : 0;
     
-    console.log('Stats calculated:', { totalPresent, totalLate, totalAbsent, attendanceRate });
+    console.log('Employee stats calculated:', { totalPresent, totalLate, totalAbsent, attendanceRate });
     
     res.json({
       totalPresent,
@@ -275,68 +405,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
       attendanceRate: parseFloat(attendanceRate)
     });
   } catch (err) {
-    console.error('Error fetching stats:', err);
-    res.status(500).json({ message: 'Server error: ' + err.message });
-  }
-});
-
-// Create sample data
-router.post('/create-sample', authMiddleware, async (req, res) => {
-  try {
-    console.log('📝 Creating sample data...');
-    
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    const employee = await getOrCreateEmployee(user);
-    
-    const today = new Date();
-    let createdCount = 0;
-    
-    for (let i = 1; i <= 10; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0);
-      
-      const dayOfWeek = date.getDay();
-      if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-      
-      const checkInTime = new Date(date);
-      const randomHour = Math.random() > 0.8 ? 9 + Math.floor(Math.random() * 2) : 9;
-      const randomMinute = Math.floor(Math.random() * 60);
-      checkInTime.setHours(randomHour, randomMinute, 0);
-      
-      const checkOutTime = new Date(date);
-      checkOutTime.setHours(17, Math.floor(Math.random() * 30), 0);
-      
-      const isLate = checkInTime.getHours() > 9 || (checkInTime.getHours() === 9 && checkInTime.getMinutes() > 30);
-      const status = isLate ? 'late' : 'present';
-      const lateMinutes = isLate ? (checkInTime.getHours() - 9) * 60 + checkInTime.getMinutes() - 30 : 0;
-      
-      const existing = await Attendance.findOne({ employee: employee._id, date: date });
-      if (!existing) {
-        const attendance = new Attendance({
-          employee: employee._id,
-          date: date,
-          checkIn: checkInTime,
-          checkOut: checkOutTime,
-          status: status,
-          lateMinutes: lateMinutes
-        });
-        await attendance.save();
-        createdCount++;
-      }
-    }
-    
-    console.log(`✅ Created ${createdCount} sample records`);
-    res.json({
-      success: true,
-      message: `Created ${createdCount} sample attendance records`
-    });
-  } catch (err) {
-    console.error('Error creating sample data:', err);
+    console.error('Error fetching employee stats:', err);
     res.status(500).json({ message: 'Server error: ' + err.message });
   }
 });
