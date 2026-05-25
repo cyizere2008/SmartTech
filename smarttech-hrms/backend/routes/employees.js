@@ -42,7 +42,39 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
-// Get all employees (HR/Admin only)
+// ==================== IMPORTANT: SEARCH ROUTE MUST COME BEFORE /:id ====================
+// Search employees - MUST be BEFORE the /:id route
+router.get('/search', authMiddleware, async (req, res) => {
+  try {
+    const { q } = req.query;
+    console.log('Search query:', q);
+    
+    if (!q || q.trim() === '') {
+      const employees = await Employee.find().populate('department', 'name');
+      return res.json(employees);
+    }
+    
+    // Create search regex for case-insensitive search
+    const searchRegex = new RegExp(q, 'i');
+    
+    const employees = await Employee.find({
+      $or: [
+        { fullname: { $regex: searchRegex } },
+        { email: { $regex: searchRegex } },
+        { position: { $regex: searchRegex } },
+        { phone: { $regex: searchRegex } }
+      ]
+    }).populate('department', 'name');
+    
+    console.log(`Found ${employees.length} employees matching "${q}"`);
+    res.json(employees);
+  } catch (err) {
+    console.error('Search error:', err);
+    res.status(500).json({ message: 'Server error: ' + err.message });
+  }
+});
+
+// ==================== GET ALL EMPLOYEES ====================
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const employees = await Employee.find()
@@ -55,9 +87,14 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Get single employee
+// ==================== GET SINGLE EMPLOYEE ====================
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
+    // Validate if the ID is a valid MongoDB ObjectId
+    if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: 'Invalid employee ID format' });
+    }
+    
     const employee = await Employee.findById(req.params.id)
       .populate('department', 'name description');
     if (!employee) {
@@ -70,7 +107,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Add new employee (HR/Admin only)
+// ==================== ADD NEW EMPLOYEE ====================
 router.post('/', authMiddleware, requireRole(['admin', 'hr_manager']), upload.single('profilePhoto'), async (req, res) => {
   try {
     const employeeData = { ...req.body };
@@ -95,9 +132,14 @@ router.post('/', authMiddleware, requireRole(['admin', 'hr_manager']), upload.si
   }
 });
 
-// Update employee (HR/Admin only)
+// ==================== UPDATE EMPLOYEE ====================
 router.put('/:id', authMiddleware, requireRole(['admin', 'hr_manager']), upload.single('profilePhoto'), async (req, res) => {
   try {
+    // Validate if the ID is a valid MongoDB ObjectId
+    if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: 'Invalid employee ID format' });
+    }
+    
     const updateData = { ...req.body };
     
     if (req.file) {
@@ -129,9 +171,14 @@ router.put('/:id', authMiddleware, requireRole(['admin', 'hr_manager']), upload.
   }
 });
 
-// Delete employee (HR/Admin only)
+// ==================== DELETE EMPLOYEE ====================
 router.delete('/:id', authMiddleware, requireRole(['admin', 'hr_manager']), async (req, res) => {
   try {
+    // Validate if the ID is a valid MongoDB ObjectId
+    if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: 'Invalid employee ID format' });
+    }
+    
     const employee = await Employee.findByIdAndDelete(req.params.id);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
@@ -146,31 +193,6 @@ router.delete('/:id', authMiddleware, requireRole(['admin', 'hr_manager']), asyn
     }
     
     res.json({ message: 'Employee deleted successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error: ' + err.message });
-  }
-});
-
-// Search employees
-router.get('/search', authMiddleware, async (req, res) => {
-  try {
-    const { q } = req.query;
-    if (!q) {
-      const employees = await Employee.find().populate('department', 'name');
-      return res.json(employees);
-    }
-    
-    const employees = await Employee.find({
-      $or: [
-        { fullname: { $regex: q, $options: 'i' } },
-        { email: { $regex: q, $options: 'i' } },
-        { position: { $regex: q, $options: 'i' } },
-        { phone: { $regex: q, $options: 'i' } }
-      ]
-    }).populate('department', 'name');
-    
-    res.json(employees);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error: ' + err.message });

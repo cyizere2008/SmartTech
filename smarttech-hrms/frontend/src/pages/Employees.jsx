@@ -9,6 +9,7 @@ const Employees = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullname: '',
     gender: 'Male',
@@ -30,11 +31,15 @@ const Employees = () => {
   }, []);
 
   const fetchEmployees = async () => {
+    setLoading(true);
     try {
       const res = await axios.get('http://localhost:5000/api/employees');
       setEmployees(res.data);
     } catch (err) {
       toast.error('Failed to fetch employees');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,15 +53,20 @@ const Employees = () => {
   };
 
   const handleSearch = async () => {
-    if (!searchTerm) {
+    if (!searchTerm.trim()) {
       fetchEmployees();
       return;
     }
+    setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/employees/search?q=${searchTerm}`);
+      const res = await axios.get(`http://localhost:5000/api/employees/search?q=${encodeURIComponent(searchTerm)}`);
       setEmployees(res.data);
+      toast.info(`Found ${res.data.length} employees matching "${searchTerm}"`);
     } catch (err) {
-      toast.error('Search failed');
+      console.error('Search error:', err);
+      toast.error(err.response?.data?.message || 'Search failed');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -68,6 +78,7 @@ const Employees = () => {
     });
     if (profilePhoto) data.append('profilePhoto', profilePhoto);
 
+    setLoading(true);
     try {
       if (editingEmployee) {
         await axios.put(`http://localhost:5000/api/employees/${editingEmployee._id}`, data);
@@ -81,17 +92,24 @@ const Employees = () => {
       fetchEmployees();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Operation failed');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
+      setLoading(true);
       try {
         await axios.delete(`http://localhost:5000/api/employees/${id}`);
         toast.success('Employee deleted successfully');
         fetchEmployees();
       } catch (err) {
         toast.error('Delete failed');
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -140,7 +158,7 @@ const Employees = () => {
               resetForm();
               setShowModal(true);
             }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
           >
             <FaPlus /> Add Employee
           </button>
@@ -162,7 +180,7 @@ const Employees = () => {
             </div>
             <button
               onClick={handleSearch}
-              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition"
             >
               Search
             </button>
@@ -186,7 +204,7 @@ const Employees = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {employees.map((emp) => (
-                  <tr key={emp._id} className="hover:bg-gray-50">
+                  <tr key={emp._id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4">
                       {emp.profilePhoto ? (
                         <img src={`http://localhost:5000${emp.profilePhoto}`} alt={emp.fullname} className="w-10 h-10 rounded-full object-cover" />
@@ -205,15 +223,17 @@ const Employees = () => {
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleEdit(emp)}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-blue-600 hover:text-blue-800 transition p-1"
+                          title="Edit"
                         >
-                          <FaEdit />
+                          <FaEdit size={18} />
                         </button>
                         <button
                           onClick={() => handleDelete(emp._id)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 hover:text-red-800 transition p-1"
+                          title="Delete"
                         >
-                          <FaTrash />
+                          <FaTrash size={18} />
                         </button>
                       </div>
                     </td>
@@ -226,19 +246,29 @@ const Employees = () => {
 
         {/* Add/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</h2>
                 <form onSubmit={handleSubmit}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">Full Name *</label>
-                      <input type="text" className="w-full border rounded-lg px-3 py-2" value={formData.fullname} onChange={(e) => setFormData({...formData, fullname: e.target.value})} required />
+                      <input 
+                        type="text" 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        value={formData.fullname} 
+                        onChange={(e) => setFormData({...formData, fullname: e.target.value})} 
+                        required 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Gender</label>
-                      <select className="w-full border rounded-lg px-3 py-2" value={formData.gender} onChange={(e) => setFormData({...formData, gender: e.target.value})}>
+                      <select 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        value={formData.gender} 
+                        onChange={(e) => setFormData({...formData, gender: e.target.value})}
+                      >
                         <option>Male</option>
                         <option>Female</option>
                         <option>Other</option>
@@ -246,23 +276,49 @@ const Employees = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Date of Birth</label>
-                      <input type="date" className="w-full border rounded-lg px-3 py-2" value={formData.dateOfBirth} onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})} />
+                      <input 
+                        type="date" 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        value={formData.dateOfBirth} 
+                        onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})} 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Email *</label>
-                      <input type="email" className="w-full border rounded-lg px-3 py-2" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
+                      <input 
+                        type="email" 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        value={formData.email} 
+                        onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                        required 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Phone</label>
-                      <input type="tel" className="w-full border rounded-lg px-3 py-2" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                      <input 
+                        type="tel" 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        value={formData.phone} 
+                        onChange={(e) => setFormData({...formData, phone: e.target.value})} 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Position *</label>
-                      <input type="text" className="w-full border rounded-lg px-3 py-2" value={formData.position} onChange={(e) => setFormData({...formData, position: e.target.value})} required />
+                      <input 
+                        type="text" 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        value={formData.position} 
+                        onChange={(e) => setFormData({...formData, position: e.target.value})} 
+                        required 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Department</label>
-                      <select className="w-full border rounded-lg px-3 py-2" value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})}>
+                      <select 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        value={formData.department} 
+                        onChange={(e) => setFormData({...formData, department: e.target.value})}
+                      >
                         <option value="">Select Department</option>
                         {departments.map(dept => (
                           <option key={dept._id} value={dept._id}>{dept.name}</option>
@@ -271,24 +327,54 @@ const Employees = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Salary</label>
-                      <input type="number" className="w-full border rounded-lg px-3 py-2" value={formData.salary} onChange={(e) => setFormData({...formData, salary: e.target.value})} />
+                      <input 
+                        type="number" 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        value={formData.salary} 
+                        onChange={(e) => setFormData({...formData, salary: e.target.value})} 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Joining Date</label>
-                      <input type="date" className="w-full border rounded-lg px-3 py-2" value={formData.joiningDate} onChange={(e) => setFormData({...formData, joiningDate: e.target.value})} />
+                      <input 
+                        type="date" 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        value={formData.joiningDate} 
+                        onChange={(e) => setFormData({...formData, joiningDate: e.target.value})} 
+                      />
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium mb-1">Address</label>
-                      <textarea className="w-full border rounded-lg px-3 py-2" rows="2" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})}></textarea>
+                      <textarea 
+                        className="w-full border rounded-lg px-3 py-2" 
+                        rows="2" 
+                        value={formData.address} 
+                        onChange={(e) => setFormData({...formData, address: e.target.value})}
+                      />
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium mb-1">Profile Photo</label>
-                      <input type="file" accept="image/*" onChange={(e) => setProfilePhoto(e.target.files[0])} />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => setProfilePhoto(e.target.files[0])} 
+                      />
                     </div>
                   </div>
                   <div className="flex justify-end gap-3 mt-6">
-                    <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Cancel</button>
-                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{editingEmployee ? 'Update' : 'Save'}</button>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowModal(false)} 
+                      className="px-4 py-2 border rounded-lg hover:bg-gray-50 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    >
+                      {editingEmployee ? 'Update' : 'Save'}
+                    </button>
                   </div>
                 </form>
               </div>
