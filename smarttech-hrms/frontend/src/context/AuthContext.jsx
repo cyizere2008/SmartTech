@@ -2,6 +2,9 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
+// ✅ Add this line - Get API URL from environment variable
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
@@ -22,7 +25,8 @@ export const AuthProvider = ({ children, navigate }) => {
 
   const fetchUser = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/auth/me');
+      // ✅ Updated: Use API_URL variable
+      const res = await axios.get(`${API_URL}/api/auth/me`);
       setUser(res.data);
     } catch (err) {
       localStorage.removeItem('token');
@@ -34,7 +38,8 @@ export const AuthProvider = ({ children, navigate }) => {
 
   const login = async (email, password) => {
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+      // ✅ Updated: Use API_URL variable
+      const res = await axios.post(`${API_URL}/api/auth/login`, { email, password });
       localStorage.setItem('token', res.data.token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
       setUser(res.data.user);
@@ -49,7 +54,8 @@ export const AuthProvider = ({ children, navigate }) => {
 
   const register = async (userData) => {
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/register', userData);
+      // ✅ Updated: Use API_URL variable
+      const res = await axios.post(`${API_URL}/api/auth/register`, userData);
       localStorage.setItem('token', res.data.token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
       setUser(res.data.user);
