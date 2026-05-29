@@ -7,6 +7,67 @@ const Payroll = require('../models/Payroll');
 const Department = require('../models/Department');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 
+// ==================== ATTENDANCE HR ROUTE ====================
+
+// Get all attendance for HR (with department populated)
+router.get('/hr/all', authMiddleware, requireRole(['admin', 'hr_manager']), async (req, res) => {
+  try {
+    console.log('📝 HR fetching all attendance records');
+    
+    const { employeeId, department, date, startDate, endDate } = req.query;
+    let query = {};
+    
+    if (employeeId && employeeId !== '') query.employee = employeeId;
+    if (date) {
+      const targetDate = new Date(date);
+      targetDate.setHours(0, 0, 0, 0);
+      const nextDate = new Date(targetDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      query.date = { $gte: targetDate, $lt: nextDate };
+    }
+    if (startDate) query.date = { $gte: new Date(startDate) };
+    if (endDate) query.date = { ...query.date, $lte: new Date(endDate) };
+    
+    let attendances = await Attendance.find(query)
+      .populate({
+        path: 'employee',
+        populate: {
+          path: 'department',
+          model: 'Department',
+          select: 'name description'
+        }
+      })
+      .sort({ date: -1 });
+    
+    // Filter by department if specified
+    if (department && department !== '') {
+      attendances = attendances.filter(a => 
+        a.employee?.department?._id?.toString() === department ||
+        a.employee?.department?.toString() === department
+      );
+    }
+    
+    // Format the response with proper department names
+    const formattedAttendances = attendances.map(att => {
+      const attObj = att.toObject();
+      return {
+        ...attObj,
+        employee: {
+          ...attObj.employee,
+          departmentName: attObj.employee?.department?.name || 'Unassigned',
+          departmentId: attObj.employee?.department?._id || null
+        }
+      };
+    });
+    
+    console.log(`Found ${formattedAttendances.length} attendance records`);
+    res.json(formattedAttendances);
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ message: 'Server error: ' + err.message });
+  }
+});
+
 // ==================== EMPLOYEE REPORTS ====================
 
 // Generate employee report

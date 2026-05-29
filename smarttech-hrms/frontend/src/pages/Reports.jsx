@@ -45,7 +45,7 @@ const Reports = () => {
           url = endpoint;
           break;
         case 'attendance':
-          endpoint = 'http://localhost:5000/api/reports/attendance';
+          endpoint = 'http://localhost:5000/api/reports/hr/all';
           url = `${endpoint}?month=${filters.month}&year=${filters.year}`;
           if (filters.status !== 'all') url += `&status=${filters.status}`;
           break;
