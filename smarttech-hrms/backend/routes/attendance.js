@@ -254,6 +254,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
 // ==================== HR/ADMIN ROUTES ====================
 
 // Get all attendance for HR (with filters)
+// Get all attendance for HR (with filters) - IMPROVED VERSION
 router.get('/hr/all', authMiddleware, requireRole(['admin', 'hr_manager']), async (req, res) => {
   try {
     console.log('📝 HR fetching all attendance records');
@@ -273,9 +274,17 @@ router.get('/hr/all', authMiddleware, requireRole(['admin', 'hr_manager']), asyn
     if (endDate) query.date = { ...query.date, $lte: new Date(endDate) };
     
     let attendances = await Attendance.find(query)
-      .populate('employee', 'fullname email department position')
+      .populate({
+        path: 'employee',
+        populate: {
+          path: 'department',
+          model: 'Department',
+          select: 'name description'
+        }
+      })
       .sort({ date: -1 });
     
+    // Filter by department if specified
     if (department && department !== '') {
       attendances = attendances.filter(a => 
         a.employee?.department?._id?.toString() === department ||
@@ -283,8 +292,18 @@ router.get('/hr/all', authMiddleware, requireRole(['admin', 'hr_manager']), asyn
       );
     }
     
-    console.log(`Found ${attendances.length} attendance records`);
-    res.json(attendances);
+    // Format the response with proper department names
+    const formattedAttendances = attendances.map(att => ({
+      ...att.toObject(),
+      employee: {
+        ...att.employee.toObject(),
+        departmentName: att.employee?.department?.name || 'Unassigned',
+        departmentId: att.employee?.department?._id || null
+      }
+    }));
+    
+    console.log(`Found ${formattedAttendances.length} attendance records`);
+    res.json(formattedAttendances);
   } catch (err) {
     console.error('Error:', err);
     res.status(500).json({ message: 'Server error: ' + err.message });
