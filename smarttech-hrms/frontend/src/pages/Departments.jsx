@@ -4,12 +4,15 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { 
   FaEdit, FaTrash, FaPlus, FaBuilding, FaUsers, 
-  FaTimes, FaSpinner, FaSearch, FaDownload, FaPrint
+  FaTimes, FaSpinner, FaSearch, FaDownload, FaPrint,
+  FaUser, FaEnvelope, FaBriefcase, FaPhone, FaEye
 } from 'react-icons/fa';
 
 const Departments = () => {
   const [departments, setDepartments] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showEmployeesModal, setShowEmployeesModal] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [editingDept, setEditingDept] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,19 +71,25 @@ const Departments = () => {
     }
   };
 
+  const viewDepartmentEmployees = (dept) => {
+    setSelectedDepartment(dept);
+    setShowEmployeesModal(true);
+  };
+
   const filteredDepartments = departments.filter(dept =>
     dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (dept.description && dept.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const totalEmployees = departments.reduce((sum, dept) => sum + (dept.employees?.length || 0), 0);
+  const totalEmployees = departments.reduce((sum, dept) => sum + (dept.employeeCount || dept.employees?.length || 0), 0);
 
   const exportToCSV = () => {
-    const headers = ['Department Name', 'Description', 'Employee Count'];
+    const headers = ['Department Name', 'Description', 'Employee Count', 'Employees List'];
     const rows = departments.map(dept => [
       dept.name,
       dept.description || 'No description',
-      dept.employees?.length || 0
+      dept.employeeCount || dept.employees?.length || 0,
+      dept.employees?.map(emp => emp.fullname).join(', ') || 'No employees'
     ]);
     
     const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
@@ -117,16 +126,17 @@ const Departments = () => {
             <div class="title">Departments Report</div>
             <p>Generated: ${new Date().toLocaleString()}</p>
           </div>
-          <table>
+          </table>
             <thead>
-              <tr><th>Department</th><th>Description</th><th>Employees</th></tr>
+              <tr><th>Department</th><th>Description</th><th>Employees Count</th><th>Employees List</th></tr>
             </thead>
             <tbody>
               ${departments.map(dept => `
                 <tr>
                   <td>${dept.name}</td>
                   <td>${dept.description || 'No description'}</td>
-                  <td>${dept.employees?.length || 0}</td>
+                  <td>${dept.employeeCount || dept.employees?.length || 0}</td>
+                  <td>${dept.employees?.map(emp => emp.fullname).join(', ') || 'No employees'}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -264,11 +274,11 @@ const Departments = () => {
                 className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200 overflow-hidden"
               >
                 {/* Card Header */}
-                <div className="border-b border-gray-100 px-4 py-3">
+                <div className="border-b border-gray-100 px-4 py-3 bg-gray-50">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <FaBuilding className="text-gray-500 text-sm" />
-                      <h3 className="font-medium text-gray-800 truncate">{dept.name}</h3>
+                      <FaBuilding className="text-blue-500 text-sm" />
+                      <h3 className="font-semibold text-gray-800 truncate">{dept.name}</h3>
                     </div>
                     <div className="flex gap-1">
                       <button 
@@ -295,21 +305,132 @@ const Departments = () => {
                 
                 {/* Card Body */}
                 <div className="p-4">
-                  <p className="text-gray-500 text-sm leading-relaxed">
+                  <p className="text-gray-500 text-sm leading-relaxed mb-3">
                     {dept.description || 'No description provided'}
                   </p>
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                  
+                  {/* Employee Count and View Button */}
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
                     <div className="flex items-center gap-2">
                       <FaUsers className="text-gray-400 text-sm" />
-                      <span className="text-sm text-gray-600">{dept.employees?.length || 0} employees</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        {dept.employeeCount || dept.employees?.length || 0} Employees
+                      </span>
                     </div>
-                    <div className="text-xs text-gray-400">
-                      ID: {dept._id?.slice(-6)}
-                    </div>
+                    <button
+                      onClick={() => viewDepartmentEmployees(dept)}
+                      className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
+                    >
+                      <FaEye size={12} /> View All
+                    </button>
                   </div>
+                  
+                  {/* Show first 3 employees preview */}
+                  {dept.employees && dept.employees.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs text-gray-400 font-medium">Recent Employees:</p>
+                      {dept.employees.slice(0, 3).map((emp, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-xs text-gray-600">
+                          <FaUser size={10} />
+                          <span>{emp.fullname}</span>
+                          <span className="text-gray-400">•</span>
+                          <span>{emp.position}</span>
+                        </div>
+                      ))}
+                      {dept.employees.length > 3 && (
+                        <p className="text-xs text-blue-500 cursor-pointer hover:underline" onClick={() => viewDepartmentEmployees(dept)}>
+                          +{dept.employees.length - 3} more employees
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Employees List Modal */}
+        {showEmployeesModal && selectedDepartment && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowEmployeesModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="border-b border-gray-200 px-6 py-4 bg-gray-50">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-800">
+                      {selectedDepartment.name} - Employees
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Total {selectedDepartment.employees?.length || 0} employees in this department
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowEmployeesModal(false)} 
+                    className="text-gray-400 hover:text-gray-600 transition text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              
+              <div className="overflow-y-auto max-h-[60vh]">
+                {selectedDepartment.employees && selectedDepartment.employees.length > 0 ? (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {selectedDepartment.employees.map((emp) => (
+                        <tr key={emp._id} className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                                {emp.fullname?.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="font-medium text-gray-900">{emp.fullname}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-600">{emp.position}</span>
+                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              <FaEnvelope className="text-gray-400 text-xs" />
+                              <span className="text-sm text-gray-600">{emp.email}</span>
+                            </div>
+                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              <FaPhone className="text-gray-400 text-xs" />
+                              <span className="text-sm text-gray-600">{emp.phone || 'N/A'}</span>
+                            </div>
+                           </td>
+                         </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-center py-12">
+                    <FaUsers className="text-5xl text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No employees assigned to this department yet</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
+                <button
+                  onClick={() => setShowEmployeesModal(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
